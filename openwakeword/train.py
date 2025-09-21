@@ -636,7 +636,17 @@ if __name__ == '__main__':
 
     # imports Piper for synthetic sample generation
     sys.path.insert(0, os.path.abspath(config["piper_sample_generator_path"]))
-    from generate_samples import generate_samples
+    from generate_samples import generate_samples as generate_samples_pt
+    from generate_samples import generate_samples_onnx
+
+    if "piper_model" not in config:
+        config["piper_model"] = "en_US-libritts_r-medium.pt"
+        logging.warning(f"Piper Model not specified, using default model. ({config['piper_model']})")
+        generate_samples = generate_samples_pt
+    elif if config["piper_model"].endswith(".onnx"):
+        generate_samples = generate_samples_onnx
+    else:
+        generate_samples = generate_samples_pt
 
     # Define output locations
     config["output_dir"] = os.path.abspath(config["output_dir"])
@@ -667,6 +677,7 @@ if __name__ == '__main__':
         n_current_samples = len(os.listdir(positive_train_output_dir))
         if n_current_samples <= 0.95*config["n_samples"]:
             generate_samples(
+                model=os.path.abspath(config["piper_sample_generator_path"]) + "/models/" + config["piper_model"],
                 text=config["target_phrase"], max_samples=config["n_samples"]-n_current_samples,
                 batch_size=config["tts_batch_size"],
                 noise_scales=[0.98], noise_scale_ws=[0.98], length_scales=[0.75, 1.0, 1.25],
@@ -683,7 +694,8 @@ if __name__ == '__main__':
             os.mkdir(positive_test_output_dir)
         n_current_samples = len(os.listdir(positive_test_output_dir))
         if n_current_samples <= 0.95*config["n_samples_val"]:
-            generate_samples(text=config["target_phrase"], max_samples=config["n_samples_val"]-n_current_samples,
+            generate_samples(model=os.path.abspath(config["piper_sample_generator_path"]) + "/models/" + config["piper_model"],
+                             text=config["target_phrase"], max_samples=config["n_samples_val"]-n_current_samples,
                              batch_size=config["tts_batch_size"],
                              noise_scales=[1.0], noise_scale_ws=[1.0], length_scales=[0.75, 1.0, 1.25],
                              output_dir=positive_test_output_dir, auto_reduce_batch_size=True)
@@ -704,7 +716,8 @@ if __name__ == '__main__':
                     N=config["n_samples"]//len(config["target_phrase"]),
                     include_partial_phrase=1.0,
                     include_input_words=0.2))
-            generate_samples(text=adversarial_texts, max_samples=config["n_samples"]-n_current_samples,
+            generate_samples(model=os.path.abspath(config["piper_sample_generator_path"]) + "/models/" + config["piper_model"],
+                             text=adversarial_texts, max_samples=config["n_samples"]-n_current_samples,
                              batch_size=config["tts_batch_size"]//7,
                              noise_scales=[0.98], noise_scale_ws=[0.98], length_scales=[0.75, 1.0, 1.25],
                              output_dir=negative_train_output_dir, auto_reduce_batch_size=True,
@@ -727,7 +740,8 @@ if __name__ == '__main__':
                     N=config["n_samples_val"]//len(config["target_phrase"]),
                     include_partial_phrase=1.0,
                     include_input_words=0.2))
-            generate_samples(text=adversarial_texts, max_samples=config["n_samples_val"]-n_current_samples,
+            generate_samples(model=os.path.abspath(config["piper_sample_generator_path"]) + "/models/" + config["piper_model"],
+                             text=adversarial_texts, max_samples=config["n_samples_val"]-n_current_samples,
                              batch_size=config["tts_batch_size"]//7,
                              noise_scales=[1.0], noise_scale_ws=[1.0], length_scales=[0.75, 1.0, 1.25],
                              output_dir=negative_test_output_dir, auto_reduce_batch_size=True)
@@ -900,3 +914,4 @@ if __name__ == '__main__':
         # Convert the model from onnx to tflite format
         convert_onnx_to_tflite(os.path.join(config["output_dir"], config["model_name"] + ".onnx"),
                                os.path.join(config["output_dir"], config["model_name"] + ".tflite"))
+
